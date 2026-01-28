@@ -1,0 +1,162 @@
+{% extends "bookmarks/base.html" %}
+
+{% block title %}All Bookmarks{% endblock %}
+
+{% block content %}
+<h2>All Bookmarks ({{ bookmarks_with_params|length }})</h2>
+
+<style>
+    .search-box {
+        width: 100%;
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        border: 2px solid #ddd;
+        border-radius: 4px;
+        font-size: 1rem;
+    }
+    .bookmarks-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    .bookmark-card {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 0.75rem;
+        transition: all 0.2s;
+        position: relative;
+        cursor: pointer;
+    }
+    .bookmark-card:hover {
+        border-color: #3498db;
+        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.1);
+    }
+    .bookmark-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .bookmark-key {
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        font-size: 1em;
+        color: #2c3e50;
+        min-width: 50px;
+    }
+    .param-badge {
+        background-color: #3498db;
+        color: white;
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 0.65em;
+        font-family: 'Courier New', monospace;
+    }
+    .bookmark-description {
+        color: #555;
+        font-size: 0.85em;
+        flex: 1;
+    }
+    .bookmark-url {
+        font-family: 'Courier New', monospace;
+        font-size: 0.75em;
+        color: #95a5a6;
+        word-break: break-all;
+        line-height: 1.3;
+        position: absolute;
+        bottom: 100%;
+        left: 0;
+        right: 0;
+        background: #2c3e50;
+        color: white;
+        padding: 0.75rem;
+        border-radius: 6px 6px 0 0;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+        margin-bottom: 0.5rem;
+        box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
+        z-index: 10;
+    }
+    .bookmark-card:hover .bookmark-url {
+        opacity: 1;
+    }
+    .no-bookmarks {
+        text-align: center;
+        padding: 3rem;
+        color: #7f8c8d;
+        grid-column: 1 / -1;
+    }
+</style>
+
+<input type="text" id="searchBox" class="search-box" placeholder="Search bookmarks by key, description, or URL...">
+
+<div class="bookmarks-grid" id="bookmarksGrid">
+    {% for item in bookmarks_with_params %}
+    <div class="bookmark-card" data-key="{{ item.bookmark.key }}" data-description="{{ item.bookmark.description }}" data-url="{{ item.bookmark.url }}">
+        <div class="bookmark-header">
+            <span class="bookmark-key">{{ item.bookmark.key }}</span>
+            {% for param in item.params %}
+            <span class="param-badge">{{ param }}</span>
+            {% endfor %}
+            <span class="bookmark-description">{{ item.bookmark.description }}</span>
+        </div>
+        <div class="bookmark-url">{{ item.bookmark.url }}</div>
+    </div>
+    {% empty %}
+    <div class="no-bookmarks">
+        No bookmarks found. Run <code>python manage.py load_bookmarks</code> to load them.
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    // Search functionality
+    document.getElementById('searchBox').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const cards = document.querySelectorAll('.bookmark-card');
+        
+        cards.forEach(card => {
+            const key = card.dataset.key?.toLowerCase() || '';
+            const description = card.dataset.description?.toLowerCase() || '';
+            const url = card.dataset.url?.toLowerCase() || '';
+            
+            if (key.includes(searchTerm) || description.includes(searchTerm) || url.includes(searchTerm)) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+
+    // Auto-refresh when bookmarks change
+    let currentHash = null;
+    let isFirstCheck = true;
+    
+    async function checkForUpdates() {
+        try {
+            const response = await fetch('/api/status/');
+            const data = await response.json();
+            
+            if (isFirstCheck) {
+                // Store initial hash on first check
+                currentHash = data.hash;
+                isFirstCheck = false;
+                console.log('Auto-refresh enabled. Will check for bookmark updates every 3 seconds.');
+            } else if (data.hash !== currentHash) {
+                console.log(`Bookmarks updated (hash changed). Refreshing...`);
+                location.reload();
+            }
+        } catch (error) {
+            console.error('Error checking for updates:', error);
+        }
+    }
+    
+    // Check for updates every 3 seconds
+    setInterval(checkForUpdates, 3000);
+    checkForUpdates(); // Initial check
+
+</script>
+{% endblock %}

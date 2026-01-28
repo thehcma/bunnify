@@ -1,0 +1,44 @@
+{% extends "bookmarks/base.html" %}
+
+{% block title %}Bunnify - Home{% endblock %}
+
+{% block content %}
+<h2>Welcome to Bunnify</h2>
+
+<p>This application manages URL bookmarks and provides quick redirects.</p>
+
+<h3>How to Use</h3>
+
+<h4>1. Simple Bookmarks</h4>
+<p>Navigate to <code>/&lt;key&gt;/</code> to be redirected to the bookmark URL.</p>
+<p><strong>Example:</strong></p>
+<ul>
+    <li><code>/c/</code> → Redirects to Google Calendar</li>
+    <li><code>/vault/</code> → Redirects to Vault</li>
+</ul>
+
+<h4>2. Parameterized Bookmarks</h4>
+<p>Some bookmarks require parameters. Pass them as query parameters.</p>
+<p><strong>Examples:</strong></p>
+<ul>
+    <li><code>/pr/?pr_id=12345</code> → Redirects to PR #12345</li>
+    <li><code>/g/?search_terms=django+tutorial</code> → Redirects to Google search</li>
+    <li><code>/cw/?commit_id=abc123</code> → Redirects to specific commit</li>
+</ul>
+
+<h4>3. View All Bookmarks</h4>
+<p>Visit <a href="/list/">/list/</a> to see all available bookmarks.</p>
+
+<h3>Setup Instructions</h3>
+<ol>
+    <li>Run migrations: <code>python manage.py migrate</code></li>
+    <li>Load bookmarks: <code>python manage.py load_bookmarks</code></li>
+    <li>Start server: <code>python manage.py runserver</code></li>
+</ol>
+
+<p style="margin-top: 2rem;">
+    <a href="/list/" style="background-color: #3498db; color: white; padding: 0.75rem 1.5rem; text-decoration: none; border-radius: 4px; display: inline-block;">
+        View All Bookmarks →
+    </a>
+</p>
+{% endblock %}

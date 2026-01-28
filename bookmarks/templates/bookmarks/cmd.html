@@ -1,0 +1,583 @@
+{% extends "bookmarks/base.html" %}
+
+{% block title %}Command Palette{% endblock %}
+
+{% block content %}
+<style>
+    .cmd-container {
+        max-width: 700px;
+        margin: 2rem auto;
+    }
+    .cmd-input {
+        width: 100%;
+        padding: 1rem;
+        font-size: 1.5rem;
+        font-family: 'Courier New', monospace;
+        border: 2px solid #3498db;
+        border-radius: 8px;
+        outline: none;
+        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+    }
+    .cmd-input:focus {
+        border-color: #2980b9;
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    }
+    .cmd-input.search-mode {
+        border-color: #e67e22;
+        background-color: #fff3e0;
+    }
+    .search-prompt {
+        font-family: 'Courier New', monospace;
+        color: #e67e22;
+        font-size: 0.9em;
+        margin-top: 0.5rem;
+        display: none;
+    }
+    .search-prompt.active {
+        display: block;
+    }
+    .suggestions {
+        margin-top: 1rem;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: white;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .suggestion-item {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+    .suggestion-item:last-child {
+        border-bottom: none;
+    }
+    .suggestion-item:hover,
+    .suggestion-item.active {
+        background: #e3f2fd;
+    }
+    .suggestion-key {
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        font-size: 1.1em;
+        color: #2c3e50;
+        margin-right: 0.5rem;
+    }
+    .suggestion-param {
+        background-color: #3498db;
+        color: white;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.7em;
+        font-family: 'Courier New', monospace;
+        margin-right: 0.5rem;
+    }
+    .suggestion-desc {
+        color: #666;
+        font-size: 0.9em;
+    }
+    .suggestion-url {
+        font-family: 'Courier New', monospace;
+        font-size: 0.75em;
+        color: #95a5a6;
+        margin-top: 0.25rem;
+    }
+    .help-text {
+        text-align: center;
+        color: #95a5a6;
+        margin-top: 1rem;
+        font-size: 0.9em;
+    }
+    .no-results {
+        padding: 2rem;
+        text-align: center;
+        color: #95a5a6;
+    }
+</style>
+
+<div class="cmd-container">
+    <input 
+        type="text" 
+        id="cmdInput" 
+        class="cmd-input" 
+        placeholder="Type a shortcut or search..." 
+        autofocus
+        autocomplete="off"
+    >
+    
+    <div id="searchPrompt" class="search-prompt">
+        reverse-i-search: <span id="searchQuery"></span>
+    </div>
+    
+    <div id="suggestions" class="suggestions" style="display: none;"></div>
+    
+    <div class="help-text">
+        <kbd>↑</kbd> <kbd>↓</kbd> to navigate/history • <kbd>Ctrl+R</kbd> to search history • <kbd>Enter</kbd> to execute • <kbd>Tab</kbd> to complete • <kbd>Esc</kbd> to cancel
+    </div>
+</div>
+
+<script>
+    const bookmarks = {{ bookmarks_json|safe }};
+    const input = document.getElementById('cmdInput');
+    const suggestionsDiv = document.getElementById('suggestions');
+    const searchPrompt = document.getElementById('searchPrompt');
+    const searchQuery = document.getElementById('searchQuery');
+    let selectedIndex = -1;
+    let currentSuggestions = [];
+    let commandHistory = [];
+    let historyIndex = -1;
+    let currentInput = '';
+    
+    // Reverse search state
+    let reverseSearchMode = false;
+    let reverseSearchQuery = '';
+    let reverseSearchMatches = [];
+    let reverseSearchIndex = 0;
+
+    // Load command history from localStorage
+    loadCommandHistory();
+
+    input.addEventListener('input', handleInput);
+    input.addEventListener('keydown', handleKeyDown);
+
+    function loadCommandHistory() {
+        try {
+            const stored = localStorage.getItem('bunnify_command_history');
+            if (stored) {
+                commandHistory = JSON.parse(stored);
+            }
+        } catch (e) {
+            console.error('Failed to load command history:', e);
+        }
+    }
+
+    function saveCommandHistory() {
+        try {
+            localStorage.setItem('bunnify_command_history', JSON.stringify(commandHistory));
+        } catch (e) {
+            console.error('Failed to save command history:', e);
+        }
+    }
+
+    function addToHistory(command) {
+        // Remove duplicates
+        commandHistory = commandHistory.filter(cmd => cmd !== command);
+        // Add to front
+        commandHistory.unshift(command);
+        // Keep only last 100
+        commandHistory = commandHistory.slice(0, 100);
+        saveCommandHistory();
+        historyIndex = -1;
+    }
+
+    function handleInput() {
+        // If in reverse search mode, update the search
+        if (reverseSearchMode) {
+            reverseSearchQuery = input.value;
+            updateReverseSearch();
+            return;
+        }
+        
+        const query = input.value.toLowerCase().trim();
+        
+        // Reset history navigation when user types
+        if (historyIndex >= 0) {
+            historyIndex = -1;
+        }
+        
+        if (!query) {
+            suggestionsDiv.style.display = 'none';
+            currentSuggestions = [];
+            selectedIndex = -1;
+            return;
+        }
+
+        // Check if input looks like "key params..." format
+        const firstWord = query.split(/\s+/)[0];
+        
+        // Filter bookmarks - prioritize exact key match, then partial matches
+        // Also include special commands like 'help' and 'h'
+        let allSuggestions = [];
+        
+        // Add special commands
+        if ('help'.startsWith(query) || 'h' === query || 'h'.startsWith(query)) {
+            allSuggestions.push({
+                key: 'h',
+                description: 'Show all bookmarks',
+                url: '/list/',
+                params: []
+            });
+        }
+        
+        // Add regular bookmarks
+        currentSuggestions = bookmarks.filter(b => {
+            const keyLower = b.key.toLowerCase();
+            // If typing a command with params, match on the first word
+            if (query.includes(' ')) {
+                return keyLower === firstWord || keyLower.startsWith(firstWord);
+            }
+            // Otherwise, match on key, description, or URL
+            return keyLower.includes(query) ||
+                   b.description.toLowerCase().includes(query) ||
+                   b.url.toLowerCase().includes(query);
+        });
+        
+        // Combine special commands and regular bookmarks
+        currentSuggestions = [...allSuggestions, ...currentSuggestions];
+        
+        // Sort: exact matches first, then by key
+        currentSuggestions.sort((a, b) => {
+            const aKey = a.key.toLowerCase();
+            const bKey = b.key.toLowerCase();
+            const aExact = aKey === firstWord;
+            const bExact = bKey === firstWord;
+            if (aExact && !bExact) return -1;
+            if (!aExact && bExact) return 1;
+            return aKey.localeCompare(bKey);
+        });
+
+        renderSuggestions();
+    }
+
+    function renderSuggestions() {
+        if (currentSuggestions.length === 0) {
+            suggestionsDiv.innerHTML = '<div class="no-results">No matching shortcuts found</div>';
+            suggestionsDiv.style.display = 'block';
+            return;
+        }
+
+        suggestionsDiv.innerHTML = currentSuggestions.map((bookmark, index) => `
+            <div class="suggestion-item ${index === selectedIndex ? 'active' : ''}" 
+                 data-index="${index}"
+                 onclick="selectSuggestion(${index})">
+                <div>
+                    <span class="suggestion-key">${bookmark.key}</span>
+                    ${bookmark.params.map(p => `<span class="suggestion-param">${p}</span>`).join('')}
+                    <span class="suggestion-desc">${bookmark.description}</span>
+                </div>
+                <div class="suggestion-url">${bookmark.url}</div>
+            </div>
+        `).join('');
+        
+        suggestionsDiv.style.display = 'block';
+    }
+
+    function handleKeyDown(e) {
+        // Handle Ctrl-R for reverse search
+        if (e.ctrlKey && e.key === 'r') {
+            e.preventDefault();
+            if (!reverseSearchMode) {
+                startReverseSearch();
+            } else {
+                // Cycle to next match
+                reverseSearchIndex = (reverseSearchIndex + 1) % reverseSearchMatches.length;
+                if (reverseSearchMatches.length > 0) {
+                    updateReverseSearchDisplay();
+                }
+            }
+            return;
+        }
+        
+        // Handle Escape to exit reverse search
+        if (e.key === 'Escape') {
+            if (reverseSearchMode) {
+                exitReverseSearch();
+                return;
+            }
+            suggestionsDiv.style.display = 'none';
+            selectedIndex = -1;
+            historyIndex = -1;
+            return;
+        }
+        
+        // Handle Enter in reverse search mode
+        if (e.key === 'Enter' && reverseSearchMode) {
+            e.preventDefault();
+            acceptReverseSearch();
+            return;
+        }
+        
+        // Handle Tab in reverse search mode to accept the match
+        if (e.key === 'Tab' && reverseSearchMode) {
+            e.preventDefault();
+            if (reverseSearchMatches.length > 0) {
+                const selectedCommand = reverseSearchMatches[reverseSearchIndex];
+                // Exit reverse search and put the command in the input
+                exitReverseSearch();
+                input.value = selectedCommand;
+                // Trigger input handler to show suggestions
+                handleInput();
+            }
+            return;
+        }
+        
+        // Handle Tab completion first
+        if (e.key === 'Tab' && currentSuggestions.length > 0 && !reverseSearchMode) {
+            e.preventDefault();
+            if (selectedIndex >= 0) {
+                // Complete with the selected suggestion
+                input.value = currentSuggestions[selectedIndex].key + ' ';
+            } else if (currentSuggestions.length === 1) {
+                // Only one suggestion, auto-complete it
+                input.value = currentSuggestions[0].key + ' ';
+                selectedIndex = 0;
+            } else {
+                // Multiple suggestions, select the first one
+                selectedIndex = 0;
+                renderSuggestions();
+            }
+            input.setSelectionRange(input.value.length, input.value.length);
+            handleInput();
+            return;
+        }
+        
+        // Handle history navigation with arrow keys (prioritized over suggestions)
+        // This allows arrow keys to work for history even when suggestions are shown
+        if (!reverseSearchMode && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            // Only do history navigation if no suggestion is selected
+            if (selectedIndex === -1) {
+                e.preventDefault();
+                
+                if (commandHistory.length === 0) return;
+                
+                // Save current input when starting history navigation
+                if (historyIndex === -1) {
+                    currentInput = input.value;
+                    // Hide suggestions when starting history navigation
+                    suggestionsDiv.style.display = 'none';
+                }
+                
+                // Filter history based on current input (prefix match)
+                const prefix = currentInput.toLowerCase();
+                const filteredHistory = prefix 
+                    ? commandHistory.filter(cmd => cmd.toLowerCase().startsWith(prefix))
+                    : commandHistory;
+                
+                if (filteredHistory.length === 0) {
+                    // No matches, keep current input
+                    return;
+                }
+                
+                if (e.key === 'ArrowUp') {
+                    // Go back in filtered history (newer to older)
+                    if (historyIndex === -1) {
+                        // First arrow up - show most recent match
+                        historyIndex = 0;
+                        input.value = filteredHistory[0];
+                    } else if (historyIndex < filteredHistory.length - 1) {
+                        // Go to older command
+                        historyIndex++;
+                        input.value = filteredHistory[historyIndex];
+                    }
+                    // If already at oldest, stay there
+                } else if (e.key === 'ArrowDown') {
+                    // Go forward in filtered history (older to newer)
+                    if (historyIndex > 0) {
+                        // Go to newer command
+                        historyIndex--;
+                        input.value = filteredHistory[historyIndex];
+                    } else if (historyIndex === 0) {
+                        // Return to original input
+                        historyIndex = -1;
+                        input.value = currentInput;
+                        // Show suggestions again when returning to original
+                        handleInput();
+                    }
+                    // If already at current input (historyIndex === -1), do nothing
+                }
+                return;
+            } else {
+                // Suggestion is selected, navigate suggestions instead
+                e.preventDefault();
+                if (e.key === 'ArrowDown') {
+                    selectedIndex = Math.min(selectedIndex + 1, currentSuggestions.length - 1);
+                    renderSuggestions();
+                    scrollToSelected();
+                } else if (e.key === 'ArrowUp') {
+                    selectedIndex = Math.max(selectedIndex - 1, -1);
+                    renderSuggestions();
+                    scrollToSelected();
+                }
+                return;
+            }
+        }
+        
+        // Handle Enter when no suggestions are shown (e.g., from history recall)
+        if (e.key === 'Enter' && !reverseSearchMode && (!currentSuggestions.length || suggestionsDiv.style.display === 'none')) {
+            e.preventDefault();
+            const inputValue = input.value.trim();
+            if (inputValue) {
+                addToHistory(inputValue);
+                window.open(`/search/?q=${encodeURIComponent(inputValue)}`, '_blank');
+                // Clear input after execution
+                input.value = '';
+                historyIndex = -1;
+            }
+            return;
+        }
+        
+        // Handle Enter when suggestions are shown
+        if (e.key === 'Enter' && currentSuggestions.length && suggestionsDiv.style.display !== 'none') {
+            e.preventDefault();
+            const inputValue = input.value.trim();
+            const firstWord = inputValue.split(/\s+/)[0];
+        
+            // If we have a selected suggestion, use it
+            if (selectedIndex >= 0) {
+                addToHistory(inputValue);
+                executeCommand(selectedIndex);
+            } 
+            // If only one suggestion and it matches the first word, use it
+            else if (currentSuggestions.length === 1 && currentSuggestions[0].key.toLowerCase() === firstWord.toLowerCase()) {
+                addToHistory(inputValue);
+                executeCommand(0);
+            }
+            // Try to find exact match for first word
+            else {
+                const exactMatch = bookmarks.findIndex(b => b.key.toLowerCase() === firstWord.toLowerCase());
+                if (exactMatch >= 0) {
+                    // Execute with the exact matched bookmark
+                    addToHistory(inputValue);
+                    window.open(`/search/?q=${encodeURIComponent(inputValue)}`, '_blank');
+                } else {
+                    // Fallback: execute as typed
+                    addToHistory(inputValue);
+                    executeTypedCommand();
+                }
+            }
+            return;
+        }
+        
+        // Handle Escape
+        if (e.key === 'Escape') {
+            suggestionsDiv.style.display = 'none';
+            selectedIndex = -1;
+            historyIndex = -1;
+        }
+    }
+
+    function selectSuggestion(index) {
+        selectedIndex = index;
+        executeCommand(index);
+    }
+
+    function executeCommand(index) {
+        const bookmark = currentSuggestions[index];
+        const inputValue = input.value.trim();
+        const inputParts = inputValue.split(/\s+/);
+        
+        if (bookmark.params.length > 0) {
+            // Check if user provided parameters
+            if (inputParts.length > 1) {
+                // User provided params, execute with the full input
+                window.open(`/search/?q=${encodeURIComponent(inputValue)}`, '_blank');
+            } else {
+                // Need params, focus on input with key pre-filled
+                input.value = bookmark.key + ' ';
+                input.focus();
+            }
+        } else {
+            // No params needed, execute immediately
+            window.open(`/search/?q=${encodeURIComponent(bookmark.key)}`, '_blank');
+        }
+    }
+
+    function executeTypedCommand() {
+        const query = input.value.trim();
+        if (query) {
+            window.open(`/search/?q=${encodeURIComponent(query)}`, '_blank');
+        }
+    }
+
+    function scrollToSelected() {
+        if (selectedIndex >= 0) {
+            const selectedElement = suggestionsDiv.querySelector(`[data-index="${selectedIndex}"]`);
+            if (selectedElement) {
+                selectedElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+    }
+
+    // Reverse search functions
+    function startReverseSearch() {
+        reverseSearchMode = true;
+        reverseSearchQuery = '';
+        reverseSearchMatches = [];
+        reverseSearchIndex = 0;
+        
+        input.value = '';
+        input.classList.add('search-mode');
+        searchPrompt.classList.add('active');
+        suggestionsDiv.style.display = 'none';
+        
+        updateReverseSearch();
+    }
+
+    function updateReverseSearch() {
+        searchQuery.textContent = reverseSearchQuery || '(empty)';
+        
+        if (reverseSearchQuery === '') {
+            reverseSearchMatches = [...commandHistory];
+        } else {
+            // Find all commands that contain the search query
+            reverseSearchMatches = commandHistory.filter(cmd => 
+                cmd.toLowerCase().includes(reverseSearchQuery.toLowerCase())
+            );
+        }
+        
+        reverseSearchIndex = 0;
+        updateReverseSearchDisplay();
+    }
+
+    function updateReverseSearchDisplay() {
+        if (reverseSearchMatches.length > 0) {
+            const match = reverseSearchMatches[reverseSearchIndex];
+            // Show the matched command in the input field (not just placeholder)
+            // Store the current search query position
+            const searchLen = reverseSearchQuery.length;
+            input.value = reverseSearchQuery;
+            input.setAttribute('data-full-match', match);
+            
+            // Update the search prompt to show the match
+            const matchInfo = document.createElement('span');
+            matchInfo.style.color = '#2ecc71';
+            matchInfo.textContent = ` → ${match}`;
+            searchQuery.innerHTML = `"${reverseSearchQuery || ''}"` + matchInfo.outerHTML;
+        } else {
+            input.value = reverseSearchQuery;
+            searchQuery.textContent = `"${reverseSearchQuery}" (no matches)`;
+        }
+    }
+
+    function acceptReverseSearch() {
+        if (reverseSearchMatches.length > 0) {
+            const selectedCommand = reverseSearchMatches[reverseSearchIndex];
+            exitReverseSearch();
+            // Execute the command
+            addToHistory(selectedCommand);
+            window.open(`/search/?q=${encodeURIComponent(selectedCommand)}`, '_blank');
+            input.value = '';
+        } else {
+            exitReverseSearch();
+        }
+    }
+
+    function exitReverseSearch() {
+        reverseSearchMode = false;
+        reverseSearchQuery = '';
+        reverseSearchMatches = [];
+        reverseSearchIndex = 0;
+        
+        input.classList.remove('search-mode');
+        searchPrompt.classList.remove('active');
+        input.placeholder = 'Type a shortcut or search...';
+        input.value = '';
+        input.removeAttribute('data-full-match');
+    }
+
+    // Focus input on page load
+    input.focus();
+</script>
+
+{% endblock %}
