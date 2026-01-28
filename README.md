@@ -105,13 +105,20 @@ The server is accessible at:
 
 **Set up Bunnify as a search engine in Chrome:**
 
-1. Visit `http://127.0.0.1:8000/` while the server is running
+1. Visit `http://127.0.0.1:8000/` (or `http://[::1]:8000/` for IPv6) while the server is running
 2. Go to Chrome Settings → Search engine → Manage search engines
 3. Find "Bunnify" (added automatically via OpenSearch) or add manually:
    - **Search engine:** Bunnify
    - **Shortcut:** `s` (or any letter you prefer)
-   - **URL:** `http://127.0.0.1:8000/search/?q=%s`
+   - **URL (IPv4):** `http://127.0.0.1:8000/search/?q=%s`
+   - **URL (IPv6):** `http://[::1]:8000/search/?q=%s`
+   - **URL (localhost):** `http://localhost:8000/search/?q=%s`
 4. Save
+
+**Note:** Choose the URL that matches how you're running the server:
+- Use IPv4 (`127.0.0.1`) if running with `127.0.0.1:8000`
+- Use IPv6 (`[::1]`) if you prefer IPv6-only access
+- Use `localhost` if running with `[::]:8000` (dual-stack) - Chrome will auto-select
 
 **Optional: Set as Default Search Engine**
 - Click the three dots next to "Bunnify" and select "Make default"
