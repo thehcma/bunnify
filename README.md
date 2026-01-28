@@ -38,8 +38,6 @@ A powerful Django-based bookmark manager and URL shortcut system with advanced c
 
 ## Quick Start
 
-## Quick Start
-
 ### 1. Clone and Setup
 
 ```bash
