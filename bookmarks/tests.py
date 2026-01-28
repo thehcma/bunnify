@@ -24,7 +24,8 @@ class SmokeTests(TestCase):
         Bookmark.objects.create(
             key='pr',
             description='Pull Request',
-            url='https://github.com/test/repo/pull/#{pr_id}'
+            url='https://github.com/#{repo}/pull/#{pr_number}',
+            defaults={'repo': 'default-org/default-repo'}
         )
     
     def test_index_page_loads(self):
@@ -65,7 +66,7 @@ class SmokeTests(TestCase):
         """Test that bookmarks requiring parameters fail without them"""
         response = self.client.get('/search/', {'q': 'pr'})
         self.assertEqual(response.status_code, 400)
-        self.assertContains(response, 'requires a parameter', status_code=400)
+        self.assertContains(response, 'requires parameter(s):', status_code=400)
     
     def test_search_nonexistent_bookmark(self):
         """Test that searching for nonexistent bookmark returns 404"""
@@ -114,3 +115,21 @@ class SmokeTests(TestCase):
         bookmarks = list(Bookmark.objects.all())
         keys = [b.key for b in bookmarks]
         self.assertEqual(keys, sorted(keys))
+    
+    def test_multi_param_with_default(self):
+        """Test multi-parameter bookmark with default value"""
+        response = self.client.get('/search/', {'q': 'pr 12345'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response['Location'],
+            'https://github.com/default-org/default-repo/pull/12345'
+        )
+    
+    def test_multi_param_override_default(self):
+        """Test multi-parameter bookmark overriding default"""
+        response = self.client.get('/search/', {'q': 'pr 12345 Shopify/shopify-build'})
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response['Location'],
+            'https://github.com/Shopify/shopify-build/pull/12345'
+        )

@@ -82,12 +82,14 @@ class Command(BaseCommand):
             for key, bookmark_data in data.items():
                 # Handle both "old-url" and "oldurl" variants
                 old_url = bookmark_data.get('old-url') or bookmark_data.get('oldurl')
+                defaults = bookmark_data.get('defaults', {})
                 
                 Bookmark.objects.create(
                     key=key,
                     description=bookmark_data['description'],
                     url=bookmark_data['url'],
-                    old_url=old_url
+                    old_url=old_url,
+                    defaults=defaults
                 )
                 created_count += 1
                 logger.debug(f"Created bookmark: key='{key}', url='{bookmark_data['url']}'")

@@ -9,6 +9,7 @@ class Bookmark(models.Model):
     description = models.TextField()
     url = models.URLField(max_length=1000)
     old_url = models.URLField(max_length=1000, blank=True, null=True)
+    defaults = models.JSONField(default=dict, blank=True)  # Default values for parameters
     
     class Meta:
         ordering = ['key']
