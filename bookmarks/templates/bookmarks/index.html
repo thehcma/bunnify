@@ -18,13 +18,19 @@
 </ul>
 
 <h4>2. Parameterized Bookmarks</h4>
-<p>Some bookmarks require parameters. Pass them as query parameters.</p>
-<p><strong>Examples:</strong></p>
+<p>Some bookmarks require parameters. You can pass them via query parameters or the search interface.</p>
+<p><strong>Query Parameter Examples:</strong></p>
 <ul>
-    <li><code>/pr/?pr_id=12345</code> → Redirects to PR #12345</li>
+    <li><code>/pr/?pr_number=12345</code> → Redirects to PR #12345</li>
     <li><code>/g/?search_terms=django+tutorial</code> → Redirects to Google search</li>
-    <li><code>/cw/?commit_id=abc123</code> → Redirects to specific commit</li>
 </ul>
+<p><strong>Search Interface (Recommended):</strong></p>
+<ul>
+    <li><code>/search/?q=pr 12345</code> → Uses default repo</li>
+    <li><code>/search/?q=pr 12345 Shopify/shopify-build</code> → Overrides default repo</li>
+    <li><code>/search/?q=g django tutorial</code> → Google search</li>
+</ul>
+<p><em>Bookmarks with multiple parameters support defaults. Required parameters come first, optional parameters (with defaults) can be overridden.</em></p>
 
 <h4>3. View All Bookmarks</h4>
 <p>Visit <a href="/list/">/list/</a> to see all available bookmarks.</p>
