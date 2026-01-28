@@ -239,9 +239,38 @@ The following keywords are reserved and cannot be used as bookmark keys:
 
 ### Running Tests
 
+The project includes comprehensive smoke tests that verify core functionality.
+
+**Run all tests:**
 ```bash
-./venv/bin/python3 manage.py test
+# Activate virtual environment first
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Run all tests
+python manage.py test
 ```
+
+**Run specific test suite:**
+```bash
+# Run only smoke tests
+python manage.py test bookmarks.tests.SmokeTests
+
+# Run with verbose output
+python manage.py test bookmarks.tests.SmokeTests -v 2
+
+# Run a specific test
+python manage.py test bookmarks.tests.SmokeTests.test_search_with_parameter
+```
+
+**Test coverage includes:**
+- Page loading (index, list, command palette, OpenSearch XML)
+- Search redirects with/without parameters
+- Parameter substitution in URLs
+- Direct bookmark redirects
+- Help command functionality
+- API suggestions endpoint
+- Model methods and ordering
+- Error handling (404, 400)
 
 ### Creating a Superuser
 
