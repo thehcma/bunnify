@@ -1,0 +1,90 @@
+#!/bin/bash
+
+# Bunnify Test Runner Script
+
+# Function to display help
+show_help() {
+    cat << EOF
+🐰 Bunnify - Test Runner
+
+USAGE:
+    ./test [OPTIONS] [TEST_PATH]
+
+DESCRIPTION:
+    Runs Django tests using the virtual environment's Python interpreter.
+    Automatically handles the virtual environment so you don't need to activate it.
+
+OPTIONS:
+    -h, --help
+        Display this help message and exit
+
+    -v, --verbosity LEVEL
+        Set test verbosity (0, 1, 2, or 3)
+        Default: 1
+
+EXAMPLES:
+    # Run all tests
+    ./test
+
+    # Run specific test suite
+    ./test bookmarks.tests.SmokeTests
+
+    # Run with verbose output
+    ./test -v 2
+
+    # Run specific test
+    ./test bookmarks.tests.SmokeTests.test_search_with_parameter
+
+    # Run all tests with maximum verbosity
+    ./test -v 3
+
+TEST COVERAGE:
+    - Page loading (index, list, command palette, OpenSearch XML)
+    - Search redirects with/without parameters
+    - Parameter substitution in URLs
+    - Direct bookmark redirects
+    - Help command functionality
+    - API suggestions endpoint
+    - Model methods and ordering
+    - Error handling (404, 400)
+
+EOF
+}
+
+# Check if help is requested
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    show_help
+    exit 0
+fi
+
+# Get the script's directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Check if venv exists
+if [ ! -d "venv" ]; then
+    echo "❌ Error: Virtual environment not found at venv/"
+    echo "Please run: python3 -m venv venv && pip install -r requirements.txt"
+    exit 1
+fi
+
+# Check if Python exists in venv
+if [ ! -f "venv/bin/python" ]; then
+    echo "❌ Error: Python not found in virtual environment"
+    echo "Please recreate the virtual environment: python3 -m venv venv"
+    exit 1
+fi
+
+# Run tests with all arguments passed through
+echo "🧪 Running tests..."
+./venv/bin/python manage.py test "$@"
+TEST_EXIT_CODE=$?
+
+# Report results
+if [ $TEST_EXIT_CODE -eq 0 ]; then
+    echo "✅ All tests passed!"
+else
+    echo "❌ Tests failed with exit code $TEST_EXIT_CODE"
+fi
+
+exit $TEST_EXIT_CODE

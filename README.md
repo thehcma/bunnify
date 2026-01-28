@@ -245,19 +245,19 @@ The project includes comprehensive smoke tests that verify core functionality.
 
 **Run all tests:**
 ```bash
-./venv/bin/python manage.py test
+./test
 ```
 
 **Run specific test suite:**
 ```bash
 # Run only smoke tests
-./venv/bin/python manage.py test bookmarks.tests.SmokeTests
+./test bookmarks.tests.SmokeTests
 
 # Run with verbose output
-./venv/bin/python manage.py test bookmarks.tests.SmokeTests -v 2
+./test -v 2
 
 # Run a specific test
-./venv/bin/python manage.py test bookmarks.tests.SmokeTests.test_search_with_parameter
+./test bookmarks.tests.SmokeTests.test_search_with_parameter
 ```
 
 **Test coverage includes:**
