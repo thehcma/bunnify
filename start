@@ -25,6 +25,10 @@ OPTIONS:
     -h, --help
         Display this help message and exit
 
+    -f, --bookmarks FILE
+        Path to the bookmarks JSON file
+        Default: ~/work/bunnify/bunnify.json
+
     --console
         Enable console logging in addition to file logging
         Default: disabled (logs only to file)
@@ -42,14 +46,18 @@ EXAMPLES:
     # Start with default settings (WARNING level, file logging only)
     ./start
 
+    # Start with custom bookmarks file
+    ./start -f /path/to/my-bookmarks.json
+    ./start --bookmarks ~/custom/bookmarks.json
+
     # Start with console output enabled
     ./start --console
 
     # Start with DEBUG level logging
     ./start --log-level DEBUG
 
-    # Start with both console output and INFO level
-    ./start --console --log-level INFO
+    # Combine options
+    ./start -f ~/my-bookmarks.json --console --log-level INFO
 
 LOGGING:
     Log file location: /tmp/bunnify.log
@@ -85,11 +93,23 @@ WATCHER_PID_FILE="$SCRIPT_DIR/.bunnify_watcher.pid"
 export BUNNIFY_LOG_LEVEL="WARNING"
 export BUNNIFY_LOG_CONSOLE="false"
 
+# Default bookmarks file
+BOOKMARKS_FILE="${HOME}/work/bunnify/bunnify.json"
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
             show_help
+            ;;
+        -f|--bookmarks)
+            if [ -z "$2" ]; then
+                echo "Error: --bookmarks requires a file path"
+                echo "Run './start --help' for more information"
+                exit 1
+            fi
+            BOOKMARKS_FILE="$2"
+            shift 2
             ;;
         --console)
             export BUNNIFY_LOG_CONSOLE="true"
@@ -225,8 +245,10 @@ echo "🐰 Starting Bunnify server..."
 echo "Directory: $SCRIPT_DIR"
 echo ""
 
-# Get the default bookmarks file path
-BOOKMARKS_FILE="${HOME}/work/bunnify/bunnify.json"
+# Expand tilde in bookmarks file path if present
+BOOKMARKS_FILE="${BOOKMARKS_FILE/#\~/$HOME}"
+
+# Check and load bookmarks
 if [ -f "$BOOKMARKS_FILE" ]; then
     BOOKMARKS_ABS=$(cd "$(dirname "$BOOKMARKS_FILE")" && pwd)/$(basename "$BOOKMARKS_FILE")
     echo "📖 Loading bookmarks from: $BOOKMARKS_ABS"
