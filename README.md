@@ -266,7 +266,59 @@ This will clear existing bookmarks and load fresh data.
 - **Django 6.0**: Web framework
 - **jsonschema**: JSON validation
 - **SQLite**: Database (default Django DB)
-- **Python 3.13**: Programming language
+- **Python 3.13**: Programming language with type hints
+- **pathlib**: Modern file path handling
+- **OpenSearch**: Browser integration protocol
+- **localStorage**: Client-side command history
+- **Streaming responses**: Real-time progress updates
+
+## Project Structure
+
+```
+bunnify/
+├── bookmarks/              # Main Django app
+│   ├── management/
+│   │   └── commands/      # Management commands
+│   │       ├── load_bookmarks.py    # Load bookmarks from JSON
+│   │       └── watch_bookmarks.py   # Auto-reload on file changes
+│   ├── templates/         # HTML templates
+│   │   └── bookmarks/
+│   │       ├── cmd.html              # Command palette
+│   │       ├── list.html             # Browse bookmarks
+│   │       ├── opensearch.xml        # Chrome integration
+│   │       └── copilot_review.html   # Copilot review UI
+│   ├── models.py          # Bookmark model
+│   ├── views.py           # View functions
+│   └── urls.py            # URL routing
+├── bunnify/               # Django project settings
+│   ├── settings.py        # Configuration with logging
+│   └── urls.py            # Root URL configuration
+├── scripts/               # Helper scripts
+│   ├── get_copilot_review.sh        # Copilot review helper
+│   └── request_copilot_review.sh    # Legacy review script
+├── manage.py              # Django management script
+├── start                  # Server startup script
+├── requirements.txt       # Python dependencies
+└── bunnify.json.example   # Example bookmark configuration
+```
+
+## Contributing
+
+Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Author
+
+**thehcma** - [GitHub](https://github.com/thehcma)
+
+## Acknowledgments
+
+- Built with Django and modern Python features
+- Inspired by browser bookmark management needs
+- Enhanced with GitHub Copilot integration for code reviews
 
 ## Tips & Tricks
 
