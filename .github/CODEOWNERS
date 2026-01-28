@@ -1,0 +1,5 @@
+# Code owners for bunnify
+# These owners will be automatically requested for review when PRs are opened
+
+# Default owner for everything in the repo
+* @thehcma
