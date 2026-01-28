@@ -7,7 +7,8 @@ A powerful Django-based bookmark manager and URL shortcut system with advanced c
 ### Core Functionality
 - **Smart Search**: Type "pr 12345" or "g search terms" directly in your browser
 - **Dynamic URL Redirects**: Navigate to `/<key>/` to be redirected to the bookmark's URL
-- **Parameter Substitution**: Supports URLs with placeholders (e.g., `#{pr_id}`, `#{search_terms}`)
+- **Parameter Substitution**: Supports URLs with placeholders (e.g., `#{pr_number}`, `#{search_terms}`)
+- **Multi-Parameter Support**: Bookmarks can accept multiple parameters with optional defaults
 - **JSON Schema Validation**: Validates the bookmark JSON file before loading
 - **Web Interface**: Browse all bookmarks with search and filtering
 
@@ -176,18 +177,34 @@ The application expects a JSON file with the following structure:
 
 URLs can contain placeholders in the format `#{parameter_name}`:
 
+**Single Parameter:**
 ```json
 {
-    "pr": {
-        "description": "Show a pull request",
-        "url": "https://github.com/org/repo/pull/#{pr_id}"
-    },
     "g": {
         "description": "Google search",
         "url": "https://www.google.com/search?q=#{search_terms}"
     }
 }
 ```
+Usage: `g django tutorial` → `https://www.google.com/search?q=django+tutorial`
+
+**Multiple Parameters with Defaults:**
+```json
+{
+    "pr": {
+        "description": "GitHub Pull Request",
+        "url": "https://github.com/#{repo}/pull/#{pr_number}",
+        "defaults": {
+            "repo": "your-org/your-repo"
+        }
+    }
+}
+```
+Usage:
+- `pr 12345` → Uses default repo → `https://github.com/your-org/your-repo/pull/12345`
+- `pr 12345 Shopify/shopify-build` → Overrides default → `https://github.com/Shopify/shopify-build/pull/12345`
+
+**Parameter Order:** Required parameters (no defaults) are mapped first, then optional parameters (with defaults).
 
 ## Project Structure
 

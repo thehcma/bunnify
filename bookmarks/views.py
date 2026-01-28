@@ -26,8 +26,11 @@ logger = logging.getLogger(__name__)
 def search_redirect(request: HttpRequest) -> HttpResponse:
     """
     Handle search queries in the format: "key param1 param2 ..."
-    Example: "pr 12345" or "g django tutorial"
+    Example: "pr 12345" or "pr 12345 Shopify/shopify-build" or "g django tutorial"
     Special: "h" shows all bookmarks
+    
+    For bookmarks with multiple parameters, splits by space.
+    For bookmarks with single parameter, passes everything after key as the value.
     """
     query = request.GET.get('q', '').strip()
     logger.info(f"Search redirect request: query='{query}'")
@@ -37,7 +40,7 @@ def search_redirect(request: HttpRequest) -> HttpResponse:
         return HttpResponseNotFound("No search query provided")
     
     # Split the query into parts
-    parts = query.split(None, 1)  # Split on first whitespace only
+    parts = query.split(None, 1)  # Split into key and rest
     
     if not parts:
         return HttpResponseNotFound("Empty search query")
@@ -49,32 +52,68 @@ def search_redirect(request: HttpRequest) -> HttpResponse:
         logger.info(f"Redirecting to help/list page for key='{key}'")
         return redirect('/list/')
     
-    param_value = parts[1] if len(parts) > 1 else ''
+    param_string = parts[1] if len(parts) > 1 else ''
     
     # Try to find the bookmark
     try:
         bookmark = Bookmark.objects.get(key=key)
-        logger.info(f"Found bookmark: key='{key}', url='{bookmark.url}', params='{param_value}'")
+        logger.info(f"Found bookmark: key='{key}', url='{bookmark.url}', params='{param_string}'")
     except Bookmark.DoesNotExist:
         logger.warning(f"Bookmark not found: key='{key}'")
         return HttpResponseNotFound(f"Bookmark '{key}' not found")
     
     url = bookmark.url
     
-    # Find all placeholders in the URL (e.g., #{pr_id}, #{search_terms})
+    # Find all placeholders in the URL (e.g., #{pr_id}, #{repo})
     placeholders = re.findall(r'#\{(\w+)\}', url)
     
     if placeholders:
-        if not param_value:
-            return HttpResponse(
-                f"Bookmark '{key}' requires a parameter.\n"
-                f"Usage: {key} <value>",
-                status=400
-            )
+        # Build parameter mapping
+        param_mapping = {}
         
-        # Replace all placeholders with the same parameter value
-        for placeholder in placeholders:
-            url = url.replace(f'#{{{placeholder}}}', param_value)
+        if len(placeholders) == 1:
+            # Single parameter - use entire param_string
+            if param_string or (bookmark.defaults and placeholders[0] in bookmark.defaults):
+                param_mapping[placeholders[0]] = param_string if param_string else bookmark.defaults[placeholders[0]]
+            else:
+                return HttpResponse(
+                    f"Bookmark '{key}' requires a parameter.\n"
+                    f"Usage: {key} <value>",
+                    status=400
+                )
+        else:
+            # Multiple parameters - split by whitespace  
+            param_values = param_string.split() if param_string else []
+            
+            # Separate required and optional parameters
+            required_params = [p for p in placeholders if p not in (bookmark.defaults or {})]
+            optional_params = [p for p in placeholders if p in (bookmark.defaults or {})]
+            
+            # Map values: required params first, then optional params
+            value_index = 0
+            for placeholder in required_params:
+                if value_index < len(param_values):
+                    param_mapping[placeholder] = param_values[value_index]
+                    value_index += 1
+                else:
+                    return HttpResponse(
+                        f"Bookmark '{key}' requires parameter(s): {', '.join(required_params)}\n"
+                        f"Usage: {key} {' '.join(f'<{p}>' for p in required_params)}"
+                        + (f" [{'  '.join(optional_params)}]" if optional_params else ""),
+                        status=400
+                    )
+            
+            # Map remaining values to optional params, or use defaults
+            for placeholder in optional_params:
+                if value_index < len(param_values):
+                    param_mapping[placeholder] = param_values[value_index]
+                    value_index += 1
+                else:
+                    param_mapping[placeholder] = bookmark.defaults[placeholder]
+        
+        # Replace all placeholders with their values
+        for placeholder, value in param_mapping.items():
+            url = url.replace(f'#{{{placeholder}}}', value)
     
     # Check if this is a special protocol (chrome://, about://, etc.)
     # Browsers block navigation to these URLs from web pages for security
