@@ -170,7 +170,13 @@
     }
 
     function findBookmarkByKey(key) {
-        return bookmarks.find(b => b.key.toLowerCase() === key.toLowerCase());
+        const lowerKey = key.toLowerCase();
+        // Check for special commands first
+        if (lowerKey === 'h' || lowerKey === 'help') {
+            return { key: 'h', description: 'Show all bookmarks', url: '/list/', params: [] };
+        }
+        // Then check regular bookmarks
+        return bookmarks.find(b => b.key.toLowerCase() === lowerKey);
     }
 
     function loadCommandHistory() {
