@@ -94,6 +94,19 @@
         text-align: center;
         color: #95a5a6;
     }
+    .error-message {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #fee;
+        border: 1px solid #fcc;
+        border-radius: 8px;
+        color: #c33;
+        font-family: 'Courier New', monospace;
+        display: none;
+    }
+    .error-message.active {
+        display: block;
+    }
 </style>
 
 <div class="cmd-container">
@@ -110,6 +123,8 @@
         reverse-i-search: <span id="searchQuery"></span>
     </div>
     
+    <div id="errorMessage" class="error-message"></div>
+    
     <div id="suggestions" class="suggestions" style="display: none;"></div>
     
     <div class="help-text">
@@ -123,6 +138,7 @@
     const suggestionsDiv = document.getElementById('suggestions');
     const searchPrompt = document.getElementById('searchPrompt');
     const searchQuery = document.getElementById('searchQuery');
+    const errorMessage = document.getElementById('errorMessage');
     let selectedIndex = -1;
     let currentSuggestions = [];
     let commandHistory = [];
@@ -140,6 +156,22 @@
 
     input.addEventListener('input', handleInput);
     input.addEventListener('keydown', handleKeyDown);
+
+    function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.classList.add('active');
+        setTimeout(() => {
+            errorMessage.classList.remove('active');
+        }, 3000);
+    }
+
+    function clearError() {
+        errorMessage.classList.remove('active');
+    }
+
+    function findBookmarkByKey(key) {
+        return bookmarks.find(b => b.key.toLowerCase() === key.toLowerCase());
+    }
 
     function loadCommandHistory() {
         try {
@@ -172,6 +204,9 @@
     }
 
     function handleInput() {
+        // Clear any error messages when user types
+        clearError();
+        
         // If in reverse search mode, update the search
         if (reverseSearchMode) {
             reverseSearchQuery = input.value;
@@ -408,6 +443,14 @@
             e.preventDefault();
             const inputValue = input.value.trim();
             if (inputValue) {
+                const firstWord = inputValue.split(/\s+/)[0];
+                const bookmark = findBookmarkByKey(firstWord);
+                
+                if (!bookmark) {
+                    showError(`Bookmark '${firstWord}' not found. Type 'h' to see all available bookmarks.`);
+                    return;
+                }
+                
                 addToHistory(inputValue);
                 window.open(`/search/?q=${encodeURIComponent(inputValue)}`, '_blank');
                 // Clear input after execution
@@ -435,15 +478,14 @@
             }
             // Try to find exact match for first word
             else {
-                const exactMatch = bookmarks.findIndex(b => b.key.toLowerCase() === firstWord.toLowerCase());
-                if (exactMatch >= 0) {
+                const bookmark = findBookmarkByKey(firstWord);
+                if (bookmark) {
                     // Execute with the exact matched bookmark
                     addToHistory(inputValue);
                     window.open(`/search/?q=${encodeURIComponent(inputValue)}`, '_blank');
                 } else {
-                    // Fallback: execute as typed
-                    addToHistory(inputValue);
-                    executeTypedCommand();
+                    // Show error instead of executing invalid command
+                    showError(`Bookmark '${firstWord}' not found. Type 'h' to see all available bookmarks.`);
                 }
             }
             return;
@@ -486,6 +528,14 @@
     function executeTypedCommand() {
         const query = input.value.trim();
         if (query) {
+            const firstWord = query.split(/\s+/)[0];
+            const bookmark = findBookmarkByKey(firstWord);
+            
+            if (!bookmark) {
+                showError(`Bookmark '${firstWord}' not found. Type 'h' to see all available bookmarks.`);
+                return;
+            }
+            
             window.open(`/search/?q=${encodeURIComponent(query)}`, '_blank');
         }
     }
