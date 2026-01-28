@@ -53,7 +53,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Run migrations
-python manage.py migrate
+./venv/bin/python manage.py migrate
 
 # Create your bookmarks file
 mkdir -p ~/work/bunnify
@@ -61,7 +61,7 @@ cp bunnify.json.example ~/work/bunnify/bunnify.json
 # Edit ~/work/bunnify/bunnify.json with your bookmarks
 
 # Load bookmarks
-python manage.py load_bookmarks
+./venv/bin/python manage.py load_bookmarks
 ```
 
 ### 2. Start the Server
@@ -245,23 +245,19 @@ The project includes comprehensive smoke tests that verify core functionality.
 
 **Run all tests:**
 ```bash
-# Activate virtual environment first
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Run all tests
-python manage.py test
+./venv/bin/python manage.py test
 ```
 
 **Run specific test suite:**
 ```bash
 # Run only smoke tests
-python manage.py test bookmarks.tests.SmokeTests
+./venv/bin/python manage.py test bookmarks.tests.SmokeTests
 
 # Run with verbose output
-python manage.py test bookmarks.tests.SmokeTests -v 2
+./venv/bin/python manage.py test bookmarks.tests.SmokeTests -v 2
 
 # Run a specific test
-python manage.py test bookmarks.tests.SmokeTests.test_search_with_parameter
+./venv/bin/python manage.py test bookmarks.tests.SmokeTests.test_search_with_parameter
 ```
 
 **Test coverage includes:**
@@ -277,7 +273,7 @@ python manage.py test bookmarks.tests.SmokeTests.test_search_with_parameter
 ### Creating a Superuser
 
 ```bash
-./venv/bin/python3 manage.py createsuperuser
+./venv/bin/python manage.py createsuperuser
 ```
 
 Then access the admin interface at `http://127.0.0.1:8000/admin/`
@@ -287,7 +283,7 @@ Then access the admin interface at `http://127.0.0.1:8000/admin/`
 To reload bookmarks after updating your JSON file:
 
 ```bash
-./venv/bin/python3 manage.py load_bookmarks
+./venv/bin/python manage.py load_bookmarks
 ```
 
 This will clear existing bookmarks and load fresh data.
@@ -365,11 +361,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 # Make sure you're in the right directory
 cd ~/work/ai/bunnify
 
-# Activate the virtual environment
-source venv/bin/activate
-
-# Try running with full path
-./venv/bin/python3 manage.py runserver
+# Use the start script
+./start
 ```
 
 ### Bookmarks not loading
@@ -378,7 +371,7 @@ source venv/bin/activate
 cat ~/work/bunnify/bunnify.json
 
 # Reload bookmarks
-./venv/bin/python3 manage.py load_bookmarks
+./venv/bin/python manage.py load_bookmarks
 ```
 
 ### Chrome not detecting Bunnify
