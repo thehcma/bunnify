@@ -72,14 +72,19 @@ python manage.py load_bookmarks
 ```
 
 This will:
-- Start the Django server on port 8000 (IPv4/IPv6)
+- Start the Django server on port 8000 (dual-stack IPv4/IPv6)
 - Start the bookmark file watcher
 - Daemonize both processes
 - Show URLs for access
 
-**Manual start:**
+**Manual start (dual-stack IPv4/IPv6):**
 ```bash
 python manage.py runserver [::]:8000
+```
+
+**Manual start (IPv4 only):**
+```bash
+python manage.py runserver 127.0.0.1:8000
 ```
 
 **With logging options:**
