@@ -38,8 +38,6 @@ A powerful Django-based bookmark manager and URL shortcut system with advanced c
 
 ## Quick Start
 
-## Quick Start
-
 ### 1. Clone and Setup
 
 ```bash
@@ -68,28 +66,25 @@ python manage.py load_bookmarks
 
 ### 2. Start the Server
 
-**Using the start script (recommended):**
+**Always use the start script** to ensure proper setup:
 ```bash
 ./start
 ```
 
 This will:
-- Start the Django server on port 8000 (IPv4/IPv6)
-- Start the bookmark file watcher
+- Start the Django server on port 8000 (dual-stack IPv4/IPv6 binding)
+- Start the bookmark file watcher for auto-reload
 - Daemonize both processes
 - Show URLs for access
 
-**Manual start:**
-```bash
-python manage.py runserver [::]:8000
-```
-
-**With logging options:**
+**Logging options:**
 ```bash
 ./start --console          # Log to console instead of file
 ./start --log-level DEBUG  # Change log level
 ./start --help            # Show all options
 ```
+
+**Note:** The start script uses dual-stack binding (`[::]:8000`), making the server accessible via IPv4, IPv6, and localhost.
 
 ### 3. Access Bunnify
 
@@ -102,13 +97,20 @@ The server is accessible at:
 
 **Set up Bunnify as a search engine in Chrome:**
 
-1. Visit `http://127.0.0.1:8000/` while the server is running
+1. Visit `http://127.0.0.1:8000/` (or `http://[::1]:8000/` for IPv6) while the server is running
 2. Go to Chrome Settings → Search engine → Manage search engines
 3. Find "Bunnify" (added automatically via OpenSearch) or add manually:
    - **Search engine:** Bunnify
    - **Shortcut:** `s` (or any letter you prefer)
-   - **URL:** `http://127.0.0.1:8000/search/?q=%s`
+   - **URL (IPv4):** `http://127.0.0.1:8000/search/?q=%s`
+   - **URL (IPv6):** `http://[::1]:8000/search/?q=%s`
+   - **URL (localhost):** `http://localhost:8000/search/?q=%s`
 4. Save
+
+**Note:** Choose the URL that matches how you're running the server:
+- Use IPv4 (`127.0.0.1`) if running with `127.0.0.1:8000`
+- Use IPv6 (`[::1]`) if you prefer IPv6-only access
+- Use `localhost` if running with `[::]:8000` (dual-stack) - Chrome will auto-select
 
 **Optional: Set as Default Search Engine**
 - Click the three dots next to "Bunnify" and select "Make default"
