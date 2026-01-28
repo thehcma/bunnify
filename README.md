@@ -38,8 +38,6 @@ A powerful Django-based bookmark manager and URL shortcut system with advanced c
 
 ## Quick Start
 
-## Quick Start
-
 ### 1. Clone and Setup
 
 ```bash
@@ -68,33 +66,25 @@ python manage.py load_bookmarks
 
 ### 2. Start the Server
 
-**Using the start script (recommended):**
+**Always use the start script** to ensure proper setup:
 ```bash
 ./start
 ```
 
 This will:
-- Start the Django server on port 8000 (dual-stack IPv4/IPv6)
-- Start the bookmark file watcher
+- Start the Django server on port 8000 (dual-stack IPv4/IPv6 binding)
+- Start the bookmark file watcher for auto-reload
 - Daemonize both processes
 - Show URLs for access
 
-**Manual start (dual-stack IPv4/IPv6):**
-```bash
-python manage.py runserver [::]:8000
-```
-
-**Manual start (IPv4 only):**
-```bash
-python manage.py runserver 127.0.0.1:8000
-```
-
-**With logging options:**
+**Logging options:**
 ```bash
 ./start --console          # Log to console instead of file
 ./start --log-level DEBUG  # Change log level
 ./start --help            # Show all options
 ```
+
+**Note:** The start script uses dual-stack binding (`[::]:8000`), making the server accessible via IPv4, IPv6, and localhost.
 
 ### 3. Access Bunnify
 
