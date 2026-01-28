@@ -245,19 +245,19 @@ The project includes comprehensive smoke tests that verify core functionality.
 
 **Run all tests:**
 ```bash
-./test
+./test_bunnify
 ```
 
 **Run specific test suite:**
 ```bash
 # Run only smoke tests
-./test bookmarks.tests.SmokeTests
+./test_bunnify bookmarks.tests.SmokeTests
 
 # Run with verbose output
-./test -v 2
+./test_bunnify -v 2
 
 # Run a specific test
-./test bookmarks.tests.SmokeTests.test_search_with_parameter
+./test_bunnify bookmarks.tests.SmokeTests.test_search_with_parameter
 ```
 
 **Test coverage includes:**

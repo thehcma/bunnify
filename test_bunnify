@@ -8,7 +8,7 @@ show_help() {
 🐰 Bunnify - Test Runner
 
 USAGE:
-    ./test [OPTIONS] [TEST_PATH]
+    ./test_bunnify [OPTIONS] [TEST_PATH]
 
 DESCRIPTION:
     Runs Django tests using the virtual environment's Python interpreter.
@@ -24,19 +24,19 @@ OPTIONS:
 
 EXAMPLES:
     # Run all tests
-    ./test
+    ./test_bunnify
 
     # Run specific test suite
-    ./test bookmarks.tests.SmokeTests
+    ./test_bunnify bookmarks.tests.SmokeTests
 
     # Run with verbose output
-    ./test -v 2
+    ./test_bunnify -v 2
 
     # Run specific test
-    ./test bookmarks.tests.SmokeTests.test_search_with_parameter
+    ./test_bunnify bookmarks.tests.SmokeTests.test_search_with_parameter
 
     # Run all tests with maximum verbosity
-    ./test -v 3
+    ./test_bunnify -v 3
 
 TEST COVERAGE:
     - Page loading (index, list, command palette, OpenSearch XML)
