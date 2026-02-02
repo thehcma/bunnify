@@ -30,6 +30,29 @@ The server is currently running at: **http://127.0.0.1:8000/**
 - http://127.0.0.1:8000/g/?search_terms=django → Google Search
 - http://127.0.0.1:8000/cw/?commit_id=abc123 → Commit
 
+## Development Commands
+
+Using **uv** for dependency management:
+
+```bash
+# Install dependencies
+uv sync
+
+# Run Django commands
+uv run python manage.py migrate
+uv run python manage.py load_bookmarks
+uv run python manage.py createsuperuser
+
+# Start server
+./start
+
+# Run tests
+./test_bunnify
+
+# Add new dependency
+uv add <package-name>
+```
+
 ## Files Created
 
 ```
@@ -50,7 +73,7 @@ The server is currently running at: **http://127.0.0.1:8000/**
 │           ├── index.html
 │           └── list.html
 ├── manage.py               # Django CLI
-├── requirements.txt        # Dependencies
+├── pyproject.toml         # Dependencies
 ├── README.md              # Documentation
 └── db.sqlite3             # Database (55 bookmarks loaded)
 ```
@@ -76,20 +99,18 @@ The server is currently running at: **http://127.0.0.1:8000/**
 
 ### Reload Bookmarks
 ```bash
-cd ~/work/ai
-source venv/bin/activate
-python manage.py load_bookmarks
+uv run python manage.py load_bookmarks
 ```
 
 ### Load from Different File
 ```bash
-python manage.py load_bookmarks --file /path/to/other.json
+uv run python manage.py load_bookmarks --file /path/to/other.json
 ```
 
 ### Start/Stop Server
 ```bash
 # Start
-python manage.py runserver
+./start
 
 # Stop
 Press Ctrl+C in the terminal

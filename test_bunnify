@@ -11,8 +11,8 @@ USAGE:
     ./test_bunnify [OPTIONS] [TEST_PATH]
 
 DESCRIPTION:
-    Runs Django tests using the virtual environment's Python interpreter.
-    Automatically handles the virtual environment so you don't need to activate it.
+    Runs Django tests using uv package manager.
+    Automatically handles the virtual environment.
 
 OPTIONS:
     -h, --help
@@ -62,22 +62,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # Check if venv exists
-if [ ! -d "venv" ]; then
-    echo "❌ Error: Virtual environment not found at venv/"
-    echo "Please run: python3 -m venv venv && pip install -r requirements.txt"
-    exit 1
-fi
-
-# Check if Python exists in venv
-if [ ! -f "venv/bin/python" ]; then
-    echo "❌ Error: Python not found in virtual environment"
-    echo "Please recreate the virtual environment: python3 -m venv venv"
+if [ ! -d ".venv" ] && [ ! -f "pyproject.toml" ]; then
+    echo "❌ Error: Project not initialized"
+    echo "Please run: uv sync"
     exit 1
 fi
 
 # Run tests with all arguments passed through
 echo "🧪 Running tests..."
-./venv/bin/python manage.py test "$@"
+uv run python manage.py test "$@"
 TEST_EXIT_CODE=$?
 
 # Report results

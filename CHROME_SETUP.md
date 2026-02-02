@@ -5,7 +5,7 @@ Configure your bookmark manager as a Chrome built-in search engine for ultra-fas
 ## Method 1: Automatic Setup (Recommended)
 
 ### Step 1: Visit the Homepage
-1. Make sure the server is running: `python manage.py runserver`
+1. Make sure the server is running: `./start`
 2. Open Chrome and visit: `http://127.0.0.1:8000/`
 3. Chrome will automatically detect the OpenSearch descriptor
 

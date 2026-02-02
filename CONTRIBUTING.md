@@ -20,26 +20,24 @@ Thank you for your interest in contributing to Bunnify! This document provides g
 git clone https://github.com/YOUR_USERNAME/bunnify.git
 cd bunnify
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies with uv
+uv sync
 
 # Run migrations
-python manage.py migrate
+uv run python manage.py migrate
 
 # Create test bookmarks
 mkdir -p ~/work/bunnify
 cp bunnify.json.example ~/work/bunnify/bunnify.json
 
 # Load bookmarks
-python manage.py load_bookmarks
+uv run python manage.py load_bookmarks
 
 # Start development server
 ./start --console --log-level DEBUG
 ```
+
+> **Note:** Requires [uv](https://docs.astral.sh/uv/). Install with: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 
 ## Code Style
 
