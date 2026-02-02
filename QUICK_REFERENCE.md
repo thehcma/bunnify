@@ -63,14 +63,12 @@ Create these additional search engines:
 
 **Start server:**
 ```bash
-cd ~/work/ai
-source venv/bin/activate
-python manage.py runserver
+./start
 ```
 
 **Reload bookmarks:**
 ```bash
-python manage.py load_bookmarks
+uv run python manage.py load_bookmarks
 ```
 
 **Check if running:**

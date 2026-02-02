@@ -2,6 +2,16 @@
 
 A powerful Django-based bookmark manager and URL shortcut system with advanced command palette, Chrome integration, and real-time GitHub Copilot code reviews.
 
+## Prerequisites
+
+- **Python 3.13+**
+- **[uv](https://docs.astral.sh/uv/)** - Fast Python package manager
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
 ## Features
 
 ### Core Functionality
@@ -46,15 +56,11 @@ A powerful Django-based bookmark manager and URL shortcut system with advanced c
 git clone https://github.com/thehcma/bunnify.git
 cd bunnify
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies with uv
+uv sync
 
 # Run migrations
-./venv/bin/python manage.py migrate
+uv run python manage.py migrate
 
 # Create your bookmarks file
 mkdir -p ~/work/bunnify
@@ -62,7 +68,7 @@ cp bunnify.json.example ~/work/bunnify/bunnify.json
 # Edit ~/work/bunnify/bunnify.json with your bookmarks
 
 # Load bookmarks
-./venv/bin/python manage.py load_bookmarks
+uv run python manage.py load_bookmarks
 ```
 
 ### 2. Start the Server
@@ -226,9 +232,9 @@ bunnify/
 ├── bunnify/
 │   ├── settings.py                  # Django settings
 │   └── urls.py                      # Main URL config
-├── venv/                            # Virtual environment
+├── .venv/                           # Virtual environment (managed by uv)
 ├── manage.py                        # Django management script
-└── requirements.txt                 # Python dependencies
+└── pyproject.toml                   # Project dependencies
 ```
 
 ## Schema Validation
@@ -290,7 +296,7 @@ The project includes comprehensive smoke tests that verify core functionality.
 ### Creating a Superuser
 
 ```bash
-./venv/bin/python manage.py createsuperuser
+uv run python manage.py createsuperuser
 ```
 
 Then access the admin interface at `http://127.0.0.1:8000/admin/`
@@ -300,7 +306,7 @@ Then access the admin interface at `http://127.0.0.1:8000/admin/`
 To reload bookmarks after updating your JSON file:
 
 ```bash
-./venv/bin/python manage.py load_bookmarks
+uv run python manage.py load_bookmarks
 ```
 
 This will clear existing bookmarks and load fresh data.
@@ -311,6 +317,7 @@ This will clear existing bookmarks and load fresh data.
 - **jsonschema**: JSON validation
 - **SQLite**: Database (default Django DB)
 - **Python 3.13**: Programming language with type hints
+- **uv**: Fast Python package manager
 - **pathlib**: Modern file path handling
 - **OpenSearch**: Browser integration protocol
 - **localStorage**: Client-side command history
@@ -388,7 +395,7 @@ cd ~/work/ai/bunnify
 cat ~/work/bunnify/bunnify.json
 
 # Reload bookmarks
-./venv/bin/python manage.py load_bookmarks
+uv run python manage.py load_bookmarks
 ```
 
 ### Chrome not detecting Bunnify

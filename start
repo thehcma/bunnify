@@ -254,7 +254,7 @@ if [ -f "$BOOKMARKS_FILE" ]; then
     echo "📖 Loading bookmarks from: $BOOKMARKS_ABS"
     
     # Load bookmarks initially (capture output to check for errors)
-    LOAD_OUTPUT=$(./venv/bin/python3 manage.py load_bookmarks --file "$BOOKMARKS_FILE" 2>&1)
+    LOAD_OUTPUT=$(uv run python manage.py load_bookmarks --file "$BOOKMARKS_FILE" 2>&1)
     LOAD_EXIT=$?
     
     if [ $LOAD_EXIT -eq 0 ]; then
@@ -276,13 +276,13 @@ else
 fi
 
 # Start the file watcher in the background (daemonized)
-nohup ./venv/bin/python3 manage.py watch_bookmarks > /dev/null 2>&1 &
+nohup uv run python manage.py watch_bookmarks > /dev/null 2>&1 &
 WATCHER_PID=$!
 echo "$WATCHER_PID" > "$WATCHER_PID_FILE"
 
 # Start the Django development server in the background (daemonized)
 # Using [::]:8000 for dual-stack (IPv4 and IPv6) support
-nohup ./venv/bin/python3 manage.py runserver [::]:8000 > /dev/null 2>&1 &
+nohup uv run python manage.py runserver [::]:8000 > /dev/null 2>&1 &
 SERVER_PID=$!
 echo "$SERVER_PID" > "$PID_FILE"
 
