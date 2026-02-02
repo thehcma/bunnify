@@ -44,7 +44,7 @@ uv run python manage.py load_bookmarks
 uv run python manage.py createsuperuser
 
 # Start server
-./start
+./bunnify-server
 
 # Run tests
 ./test_bunnify
@@ -110,7 +110,7 @@ uv run python manage.py load_bookmarks --file /path/to/other.json
 ### Start/Stop Server
 ```bash
 # Start
-./start
+./bunnify-server
 
 # Stop
 Press Ctrl+C in the terminal
