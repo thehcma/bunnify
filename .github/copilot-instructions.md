@@ -36,3 +36,20 @@ After creating a PR:
 - Use type hints where appropriate
 - Use pathlib for file operations
 - Add docstrings to functions and classes
+
+## Code Quality Checks
+
+Before committing, always run these checks locally:
+
+```bash
+# Check import sorting (must pass with no changes needed)
+uv run isort --check-only --diff .
+
+# Fix import sorting if needed
+uv run isort .
+
+# Type checking (must be 0 errors, 0 warnings)
+uv run pyright --warnings
+```
+
+Both `isort` and `pyright` must pass with zero issues before committing. The CI workflow enforces this - PRs with any isort or pyright issues will fail.

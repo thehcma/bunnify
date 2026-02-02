@@ -8,7 +8,13 @@ from typing import TYPE_CHECKING
 
 from django.core.cache import cache
 from django.db import models
-from django.http import HttpResponse, HttpResponseNotFound, HttpResponseRedirect, JsonResponse
+from django.http import (
+    HttpResponse,
+    HttpResponseNotFound,
+    HttpResponseRedirect,
+    JsonResponse,
+    StreamingHttpResponse,
+)
 from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
@@ -32,18 +38,19 @@ def search_redirect(request: HttpRequest) -> HttpResponse:
     For bookmarks with multiple parameters, splits by space.
     For bookmarks with single parameter, passes everything after key as the value.
     """
-    query = request.GET.get('q', '').strip()
+    query_param = request.GET.get('q', '')
+    query = str(query_param).strip() if query_param else ''
     logger.info(f"Search redirect request: query='{query}'")
     
     if not query:
         logger.warning("Empty search query received")
-        return HttpResponseNotFound("No search query provided")
+        return HttpResponseNotFound(content="No search query provided")
     
     # Split the query into parts
     parts = query.split(None, 1)  # Split into key and rest
     
     if not parts:
-        return HttpResponseNotFound("Empty search query")
+        return HttpResponseNotFound(content="Empty search query")
     
     key = parts[0]
     
@@ -60,7 +67,7 @@ def search_redirect(request: HttpRequest) -> HttpResponse:
         logger.info(f"Found bookmark: key='{key}', url='{bookmark.url}', params='{param_string}'")
     except Bookmark.DoesNotExist:
         logger.warning(f"Bookmark not found: key='{key}'")
-        return HttpResponseNotFound(f"Bookmark '{key}' not found")
+        return HttpResponseNotFound(content=f"Bookmark '{key}' not found")
     
     url = bookmark.url
     
@@ -137,7 +144,7 @@ def redirect_bookmark(request: HttpRequest, key: str) -> HttpResponse:
         bookmark = Bookmark.objects.get(key=key)
     except Bookmark.DoesNotExist:
         logger.warning(f"Bookmark not found for direct access: key='{key}'")
-        return HttpResponseNotFound(f"Bookmark '{key}' not found")
+        return HttpResponseNotFound(content=f"Bookmark '{key}' not found")
     
     url = bookmark.url
     
@@ -269,7 +276,8 @@ def search_suggestions(request: HttpRequest) -> JsonResponse:
     OpenSearch suggestions API - provides autocomplete suggestions for bookmarks
     Returns suggestions in OpenSearch format: [query, [suggestions], [descriptions], [urls]]
     """
-    query = request.GET.get('q', '').strip().lower()
+    query_param = request.GET.get('q', '')
+    query = str(query_param).strip().lower() if query_param else ''
     
     if not query:
         return JsonResponse([query, [], [], []], safe=False)
@@ -322,7 +330,8 @@ def command_history(request: HttpRequest) -> JsonResponse:
     """
     # For simplicity, we'll use session storage for per-user history
     if request.method == 'POST':
-        command = request.POST.get('command', '').strip()
+        command_param = request.POST.get('command', '')
+        command = str(command_param).strip() if command_param else ''
         if command:
             history = request.session.get('command_history', [])
             # Remove duplicates and add to front
@@ -341,30 +350,33 @@ def command_history(request: HttpRequest) -> JsonResponse:
 
 
 @require_http_methods(["GET"])
-def request_copilot_review(request: HttpRequest) -> HttpResponse:
+def request_copilot_review(request: HttpRequest) -> HttpResponse | StreamingHttpResponse:
     """
     Request a GitHub Copilot review for a PR and display it in Bunnify with live updates.
     """
+    import html as html_module
     import subprocess
     from pathlib import Path
+
     from django.http import StreamingHttpResponse
-    import html as html_module
     
-    pr_number = request.GET.get('pr', '')
-    repo = request.GET.get('repo', 'shop/world')
+    pr_param = request.GET.get('pr', '')
+    pr_number = str(pr_param) if pr_param else ''
+    repo_param = request.GET.get('repo', 'shop/world')
+    repo = str(repo_param) if repo_param else 'shop/world'
     
     # Validate PR number (must be numeric)
     if not pr_number:
-        return HttpResponse("Error: PR number is required. Usage: /review-pr/?pr=12345&repo=shop/world", status=400)
+        return HttpResponse(content="Error: PR number is required. Usage: /review-pr/?pr=12345&repo=shop/world", status=400)
     
     if not pr_number.isdigit():
         logger.warning(f"Invalid PR number provided: {pr_number}")
-        return HttpResponse("Error: PR number must be numeric.", status=400)
+        return HttpResponse(content="Error: PR number must be numeric.", status=400)
     
     # Validate repo format (owner/name)
     if not re.match(r'^[\w\-\.]+/[\w\-\.]+$', repo):
         logger.warning(f"Invalid repo format provided: {repo}")
-        return HttpResponse("Error: Repository must be in format 'owner/name'.", status=400)
+        return HttpResponse(content="Error: Repository must be in format 'owner/name'.", status=400)
     
     logger.info(f"Requesting private Copilot review with live updates for PR #{pr_number} in {repo}")
     
@@ -373,7 +385,7 @@ def request_copilot_review(request: HttpRequest) -> HttpResponse:
     
     if not script_path.exists():
         logger.error(f"Helper script not found: {script_path}")
-        return HttpResponse(f"Error: Helper script not found at {script_path}", status=500)
+        return HttpResponse(content=f"Error: Helper script not found at {script_path}", status=500)
     
     def stream_review():
         """Generator that yields HTML chunks as the script progresses"""
@@ -516,9 +528,9 @@ def request_copilot_review(request: HttpRequest) -> HttpResponse:
         
         # Now run the script and stream output
         try:
-            import select
             import fcntl
             import os
+            import select
             
             process = subprocess.Popen(
                 [str(script_path), pr_number, repo],
