@@ -50,6 +50,20 @@ uv run isort .
 
 # Type checking (must be 0 errors, 0 warnings)
 uv run pyright --warnings
+
+# Shell script linting (must pass with no errors or warnings)
+shellcheck bunnify-server scripts/*.sh test_redirects.sh
 ```
 
-Both `isort` and `pyright` must pass with zero issues before committing. The CI workflow enforces this - PRs with any isort or pyright issues will fail.
+All checks (`isort`, `pyright`, and `shellcheck`) must pass with zero issues before committing. The CI workflow enforces this - PRs with any issues will fail.
+
+## Shell Script Guidelines
+
+When writing or modifying bash scripts:
+- Always use `shellcheck` to validate scripts before committing
+- Use `cd ... || exit` instead of bare `cd` commands
+- Declare local variables separately from assignment: `local var; var=$(cmd)`
+- Quote variables that contain special characters like `"[::]:8000"`
+- Check exit codes directly with `if cmd; then` instead of `if [ $? -eq 0 ]; then`
+- Use lowercase for local/script variables (e.g., `server_pid`, `watcher_pid`)
+- Use UPPERCASE only for exported environment variables (e.g., `BUNNIFY_LOG_LEVEL`)

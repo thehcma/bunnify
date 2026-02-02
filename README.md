@@ -73,9 +73,9 @@ uv run python manage.py load_bookmarks
 
 ### 2. Start the Server
 
-**Always use the start script** to ensure proper setup:
+**Always use the bunnify-server script** to ensure proper setup:
 ```bash
-./start
+./bunnify-server
 ```
 
 This will:
@@ -86,12 +86,12 @@ This will:
 
 **Logging options:**
 ```bash
-./start --console          # Log to console instead of file
-./start --log-level DEBUG  # Change log level
-./start --help            # Show all options
+./bunnify-server --console          # Log to console instead of file
+./bunnify-server --log-level DEBUG  # Change log level
+./bunnify-server --help            # Show all options
 ```
 
-**Note:** The start script uses dual-stack binding (`[::]:8000`), making the server accessible via IPv4, IPv6, and localhost.
+**Note:** The bunnify-server script uses dual-stack binding (`[::]:8000`), making the server accessible via IPv4, IPv6, and localhost.
 
 ### 3. Access Bunnify
 
@@ -385,8 +385,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 # Make sure you're in the right directory
 cd ~/work/ai/bunnify
 
-# Use the start script
-./start
+# Use the bunnify-server script
+./bunnify-server
 ```
 
 ### Bookmarks not loading

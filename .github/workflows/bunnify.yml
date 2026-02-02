@@ -33,6 +33,9 @@ jobs:
     - name: Type check (pyright)
       run: uv run pyright --warnings
     
+    - name: Lint shell scripts (shellcheck)
+      run: shellcheck bunnify-server scripts/*.sh test_redirects.sh
+    
     - name: Run Django checks
       run: uv run python manage.py check
     
@@ -44,8 +47,8 @@ jobs:
         cp bunnify.json.example /tmp/test_bookmarks.json
         uv run python manage.py load_bookmarks --file /tmp/test_bookmarks.json
     
-    - name: Validate start script
-      run: ./start --help
+    - name: Validate bunnify-server script
+      run: ./bunnify-server --help
     
     - name: Run tests
       run: ./test_bunnify

@@ -1,0 +1,577 @@
+#!/bin/bash
+
+# Bunnify Server Startup Script
+
+# Function to display help
+show_help() {
+    cat << EOF
+🐰 Bunnify - Smart Bookmark Manager
+
+USAGE:
+    ./bunnify-server [OPTIONS]
+
+DESCRIPTION:
+    Starts the Bunnify Django development server with file watching for
+    automatic bookmark reloading. The server runs on port 8000, accessible via:
+    - http://127.0.0.1:8000 (IPv4)
+    - http://[::1]:8000 (IPv6)
+    - http://localhost:8000 (both)
+    
+    The server daemonizes itself and runs in the background. Startup messages
+    including PIDs are displayed, but subsequent server output goes to the log
+    file only (unless --console is specified).
+
+OPTIONS:
+    -h, --help
+        Display this help message and exit
+
+    -f, --bookmarks FILE
+        Path to the bookmarks JSON file
+        Default: ~/work/bunnify/bunnify.json
+
+    --foreground
+        Run in the foreground instead of daemonizing.
+        Useful for debugging or running in containers.
+        Press Ctrl+C to stop the server.
+        Default: disabled (runs in background)
+
+    --console
+        Enable console logging in addition to file logging
+        Default: disabled (logs only to file)
+
+    --log-level LEVEL
+        Set the logging level. Valid levels are:
+            DEBUG    - Detailed diagnostic information
+            INFO     - General informational messages
+            WARNING  - Warning messages (default)
+            ERROR    - Error messages only
+            CRITICAL - Critical errors only
+        Default: WARNING
+
+    --stop
+        Stop the running Bunnify server and file watcher.
+        Uses PID files to identify processes to stop.
+
+EXAMPLES:
+    # Start with default settings (WARNING level, file logging only)
+    ./bunnify-server
+
+    # Start with custom bookmarks file
+    ./bunnify-server -f /path/to/my-bookmarks.json
+    ./bunnify-server --bookmarks ~/custom/bookmarks.json
+
+    # Start with console output enabled
+    ./bunnify-server --console
+
+    # Start with DEBUG level logging
+    ./bunnify-server --log-level DEBUG
+
+    # Combine options
+    ./bunnify-server -f ~/my-bookmarks.json --console --log-level INFO
+
+    # Run in foreground (for debugging)
+    ./bunnify-server --foreground
+
+    # Stop the server
+    ./bunnify-server --stop
+
+LOGGING:
+    Log file location: /tmp/bunnify.log
+    Log format: [timestamp] [level] [PID:pid] [module:function:line] message
+    Log rotation: 10MB max size, 5 backup files
+
+CONFIGURATION:
+    Bookmarks file: ~/work/bunnify/bunnify.json
+    Database: SQLite (db.sqlite3)
+    Port: 8000
+
+STOPPING THE SERVER:
+    To stop the server, use one of these methods:
+        1. ./bunnify-server --stop  (recommended)
+        2. Ctrl+C (if running in foreground mode)
+        3. kill <server_pid>  (PID shown at startup)
+        4. pkill -f "manage.py runserver"
+
+EOF
+    exit 0
+}
+
+# Get the directory where this script is located
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Change to the script directory
+cd "$script_dir" || exit 1
+
+# Ensure common binary paths are in PATH (needed for nohup/background processes)
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+# Find uv command
+if command -v uv > /dev/null 2>&1; then
+    uv_cmd="uv"
+else
+    echo "❌ Error: uv command not found"
+    echo "   Please install uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
+    exit 1
+fi
+
+# PID file location
+pid_file="$script_dir/.bunnify.pid"
+WATCHER_pid_file="$script_dir/.bunnify_watcher.pid"
+
+# Cleanup function to stop all processes
+cleanup() {
+    local exit_code=${1:-0}
+    echo ""
+    echo "🛑 Shutting down Bunnify..."
+    
+    # Kill server process
+    if [ -n "$server_pid" ] && is_running "$server_pid" 2>/dev/null; then
+        echo "   Stopping server (PID: $server_pid)..."
+        kill "$server_pid" 2>/dev/null
+        sleep 1
+        if is_running "$server_pid" 2>/dev/null; then
+            kill -9 "$server_pid" 2>/dev/null
+        fi
+    fi
+    
+    # Kill watcher process
+    if [ -n "$watcher_pid" ] && is_running "$watcher_pid" 2>/dev/null; then
+        echo "   Stopping watcher (PID: $watcher_pid)..."
+        kill "$watcher_pid" 2>/dev/null
+    fi
+    
+    # Clean up PID files
+    rm -f "$pid_file" "$WATCHER_pid_file"
+    
+    echo "✅ Bunnify stopped."
+    exit "$exit_code"
+}
+
+# Cleanup function for startup interruption
+cleanup_startup() {
+    echo ""
+    echo "⚠️  Startup interrupted, cleaning up..."
+    
+    # Kill any processes we may have started
+    if [ -n "$server_pid" ]; then
+        kill "$server_pid" 2>/dev/null
+        kill -9 "$server_pid" 2>/dev/null
+    fi
+    if [ -n "$watcher_pid" ]; then
+        kill "$watcher_pid" 2>/dev/null
+    fi
+    
+    rm -f "$pid_file" "$WATCHER_pid_file"
+    echo "❌ Startup aborted."
+    exit 130
+}
+
+# Set up signal traps
+trap 'cleanup_startup' INT TERM
+
+# Default log settings
+export BUNNIFY_LOG_LEVEL="WARNING"
+export BUNNIFY_LOG_CONSOLE="false"
+
+# Default bookmarks file
+bookmarks_file="${HOME}/work/bunnify/bunnify.json"
+
+# Flags
+do_stop=false
+foreground=false
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --stop)
+            do_stop=true
+            shift
+            ;;
+        --foreground)
+            foreground=true
+            shift
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        -f|--bookmarks)
+            if [ -z "$2" ]; then
+                echo "Error: --bookmarks requires a file path"
+                echo "Run './bunnify-server --help' for more information"
+                exit 1
+            fi
+            bookmarks_file="$2"
+            shift 2
+            ;;
+        --console)
+            export BUNNIFY_LOG_CONSOLE="true"
+            shift
+            ;;
+        --log-level)
+            if [ -z "$2" ]; then
+                echo "Error: --log-level requires a value"
+                echo "Valid levels: DEBUG, INFO, WARNING, ERROR, CRITICAL"
+                echo "Run './bunnify-server --help' for more information"
+                exit 1
+            fi
+            export BUNNIFY_LOG_LEVEL="$2"
+            shift 2
+            ;;
+        *)
+            echo "Error: Unknown option: $1"
+            echo "Run './bunnify-server --help' for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# Function to check if process is running
+is_running() {
+    local pid=$1
+    if [ -z "$pid" ]; then
+        return 1
+    fi
+    if ps -p "$pid" > /dev/null 2>&1; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to check if port 8000 is in use
+is_port_in_use() {
+    lsof -ti:8000 > /dev/null 2>&1
+}
+# Function to check if process is Bunnify
+is_bunnify_process() {
+    local pid=$1
+    if [ -z "$pid" ]; then
+        return 1
+    fi
+    # Check if the process command line contains 'manage.py' and is in our directory
+    ps -p "$pid" -o command= 2>/dev/null | grep -q "manage.py"
+}
+
+# Function to stop the server (used by ./bunnify-server stop)
+do_stop() {
+    local found_process=false
+    local server_pid
+    local watcher_pid
+    local port_pid
+    
+    if [ -f "$pid_file" ]; then
+        server_pid=$(cat "$pid_file")
+        if is_running "$server_pid"; then
+            echo "🛑 Stopping server (PID: $server_pid)..."
+            kill "$server_pid" 2>/dev/null
+            sleep 1
+            if is_running "$server_pid"; then
+                kill -9 "$server_pid" 2>/dev/null
+            fi
+            found_process=true
+        fi
+        rm -f "$pid_file"
+    fi
+    
+    if [ -f "$WATCHER_pid_file" ]; then
+        watcher_pid=$(cat "$WATCHER_pid_file")
+        if is_running "$watcher_pid"; then
+            echo "🛑 Stopping file watcher (PID: $watcher_pid)..."
+            kill "$watcher_pid" 2>/dev/null
+            found_process=true
+        fi
+        rm -f "$WATCHER_pid_file"
+    fi
+    
+    # Also check for any orphaned processes on port 8000
+    if is_port_in_use; then
+        port_pid=$(lsof -ti:8000 2>/dev/null | head -1)
+        if [ -n "$port_pid" ] && is_bunnify_process "$port_pid"; then
+            echo "🛑 Stopping orphaned Bunnify process (PID: $port_pid)..."
+            kill "$port_pid" 2>/dev/null
+            sleep 1
+            if is_running "$port_pid"; then
+                kill -9 "$port_pid" 2>/dev/null
+            fi
+            found_process=true
+        fi
+    fi
+    
+    if $found_process; then
+        echo "✅ Bunnify stopped."
+    else
+        echo "ℹ️  Bunnify was not running."
+    fi
+    exit 0
+}
+
+# Handle stop command now that functions are defined
+if $do_stop; then
+    do_stop
+fi
+
+# Function to stop existing server
+stop_server() {
+    local server_pid
+    local watcher_pid
+    local port_pid
+    local proc_cmd
+    
+    if [ -f "$pid_file" ]; then
+        server_pid=$(cat "$pid_file")
+        if is_running "$server_pid"; then
+            echo "🛑 Stopping existing server (PID: $server_pid)..."
+            kill "$server_pid" 2>/dev/null
+            sleep 2
+            if is_running "$server_pid"; then
+                kill -9 "$server_pid" 2>/dev/null
+            fi
+        fi
+        rm -f "$pid_file"
+    fi
+    
+    if [ -f "$WATCHER_pid_file" ]; then
+        watcher_pid=$(cat "$WATCHER_pid_file")
+        if is_running "$watcher_pid"; then
+            echo "🛑 Stopping file watcher (PID: $watcher_pid)..."
+            kill "$watcher_pid" 2>/dev/null
+        fi
+        rm -f "$WATCHER_pid_file"
+    fi
+    
+    # Check if port is still in use
+    if is_port_in_use; then
+        port_pid=$(lsof -ti:8000 2>/dev/null | head -1)
+        if [ -n "$port_pid" ]; then
+            proc_cmd=$(ps -p "$port_pid" -o command= 2>/dev/null)
+            
+            # Check if it's a Bunnify process
+            if is_bunnify_process "$port_pid"; then
+                echo "🛑 Port 8000 still in use by Bunnify process (PID: $port_pid), killing..."
+                kill -9 "$port_pid" 2>/dev/null
+                sleep 1
+            else
+                echo "⚠️  WARNING: Port 8000 is in use by a non-Bunnify process!"
+                echo "   PID: $port_pid"
+                echo "   Command: $proc_cmd"
+                echo ""
+                echo -n "Kill this process and continue? (y/N): "
+                read -r response
+                if [[ "$response" =~ ^[Yy]$ ]]; then
+                    echo "🛑 Killing process $port_pid..."
+                    kill -9 "$port_pid" 2>/dev/null
+                    sleep 1
+                else
+                    echo "❌ Aborted. Please free port 8000 manually and try again."
+                    exit 1
+                fi
+            fi
+        fi
+    fi
+}
+
+# Check if server is already running
+if [ -f "$pid_file" ]; then
+    server_pid=$(cat "$pid_file")
+    if is_running "$server_pid"; then
+        echo "🐰 Bunnify is already running (PID: $server_pid)"
+        echo "🔄 Stopping and restarting..."
+        stop_server
+        # Wait for port to be released
+        for _ in {1..10}; do
+            if ! is_port_in_use; then
+                break
+            fi
+            sleep 0.5
+        done
+    else
+        echo "🧹 Cleaning up stale PID file..."
+        rm -f "$pid_file" "$WATCHER_pid_file"
+    fi
+elif is_port_in_use; then
+    port_pid=$(lsof -ti:8000 2>/dev/null | head -1)
+    if is_bunnify_process "$port_pid"; then
+        echo "⚠️  Port 8000 is in use by another Bunnify process"
+        echo "🔄 Stopping existing process and starting fresh..."
+        stop_server
+    else
+        proc_cmd=$(ps -p "$port_pid" -o command= 2>/dev/null)
+        echo "⚠️  WARNING: Port 8000 is in use by a non-Bunnify process!"
+        echo "   PID: $port_pid"
+        echo "   Command: $proc_cmd"
+        stop_server
+    fi
+fi
+
+echo "🐰 Starting Bunnify server..."
+echo "Directory: $script_dir"
+echo ""
+
+# Expand tilde in bookmarks file path if present
+bookmarks_file="${bookmarks_file/#\~/$HOME}"
+
+# Check and load bookmarks
+if [ -f "$bookmarks_file" ]; then
+    bookmarks_abs=$(cd "$(dirname "$bookmarks_file")" && pwd)/$(basename "$bookmarks_file")
+    echo "📖 Loading bookmarks from: $bookmarks_abs"
+    
+    # Load bookmarks initially (capture output to check for errors)
+    load_output=$($uv_cmd run python manage.py load_bookmarks --file "$bookmarks_file" 2>&1)
+    load_exit=$?
+    
+    if [ $load_exit -eq 0 ]; then
+        # Extract count from output (looks for "Successfully loaded X bookmarks")
+        bookmark_count=$(echo "$load_output" | grep -o "loaded [0-9]\+ bookmarks" | grep -o "[0-9]\+")
+        if [ -n "$bookmark_count" ]; then
+            echo "✓ Loaded $bookmark_count bookmarks"
+        else
+            echo "✓ Bookmarks loaded"
+        fi
+    else
+        echo "⚠️  Warning: Error loading bookmarks"
+    fi
+    echo ""
+else
+    echo "⚠️  Bookmarks file not found: $bookmarks_file"
+    echo "   Server will start but bookmarks may be empty"
+    echo ""
+fi
+
+if $foreground; then
+    # Foreground mode: run directly with proper signal handling
+    
+    # Start the file watcher in the background
+    $uv_cmd run python manage.py watch_bookmarks &
+    watcher_pid=$!
+    echo "$watcher_pid" > "$WATCHER_pid_file"
+    
+    # Track the Django server PID (will be set when we start it)
+    django_pid=""
+    
+    # Set up cleanup trap for foreground mode
+    cleanup_foreground() {
+        local exit_code=${1:-0}
+        echo ""
+        echo "🛑 Shutting down Bunnify..."
+        
+        # Kill Django server if running
+        if [ -n "$django_pid" ] && is_running "$django_pid"; then
+            echo "   Stopping Django server (PID: $django_pid)..."
+            kill "$django_pid" 2>/dev/null
+            # Give it a moment to shut down gracefully
+            sleep 1
+            if is_running "$django_pid"; then
+                kill -9 "$django_pid" 2>/dev/null
+            fi
+        fi
+        
+        # Kill watcher
+        if [ -n "$watcher_pid" ] && is_running "$watcher_pid"; then
+            echo "   Stopping file watcher (PID: $watcher_pid)..."
+            kill "$watcher_pid" 2>/dev/null
+        fi
+        
+        # Clean up any processes still using port 8000
+        if is_port_in_use; then
+            local port_pid
+            port_pid=$(lsof -ti:8000 2>/dev/null | head -1)
+            if [ -n "$port_pid" ]; then
+                kill "$port_pid" 2>/dev/null
+            fi
+        fi
+        
+        # Clean up PID files
+        rm -f "$pid_file" "$WATCHER_pid_file"
+        
+        echo "✅ Bunnify stopped."
+        exit "$exit_code"
+    }
+    
+    # Trap multiple signals for proper cleanup
+    trap 'cleanup_foreground 130' INT      # Ctrl+C
+    trap 'cleanup_foreground 143' TERM     # kill command
+    trap 'cleanup_foreground 129' HUP      # terminal closed
+    
+    echo "✅ Bunnify server starting in foreground mode..."
+    echo "   Watcher PID: $watcher_pid"
+    echo "   URLs:"
+    echo "     - http://127.0.0.1:8000/ (IPv4)"
+    echo "     - http://[::1]:8000/ (IPv6)"
+    echo "     - http://localhost:8000/ (auto)"
+    echo "   Log level: $BUNNIFY_LOG_LEVEL"
+    echo ""
+    echo "Press Ctrl+C to stop the server"
+    echo ""
+    
+    # Run Django server in foreground (this blocks)
+    # Using [::]:8000 for dual-stack (IPv4 and IPv6) support
+    $uv_cmd run python manage.py runserver "[::]:8000" &
+    django_pid=$!
+    
+    # Wait for Django to exit (this makes the script interruptible)
+    wait $django_pid
+    django_exit_code=$?
+    
+    # If we get here, the server exited on its own
+    cleanup_foreground $django_exit_code
+else
+    # Background mode (default): daemonize the processes
+    
+    # Start the file watcher in the background (daemonized)
+    nohup $uv_cmd run python manage.py watch_bookmarks > /dev/null 2>&1 &
+    watcher_pid=$!
+    echo "$watcher_pid" > "$WATCHER_pid_file"
+    
+    # Start the Django development server in the background (daemonized)
+    # Using [::]:8000 for dual-stack (IPv4 and IPv6) support
+    # Capture output to temp file for debugging
+    startup_log="/tmp/bunnify_startup.log"
+    nohup $uv_cmd run python manage.py runserver "[::]:8000" > "$startup_log" 2>&1 &
+    server_pid=$!
+    echo "$server_pid" > "$pid_file"
+    
+    # Wait for processes to start (uv spawns python which takes a moment)
+    sleep 3
+    
+    # The PID we captured is uv's PID, but we need to check if port 8000 is now in use
+    # as that indicates the server actually started successfully
+    if ! is_port_in_use; then
+        echo "❌ Failed to start Django server"
+        rm -f "$pid_file" "$WATCHER_pid_file"
+        # Show startup log if it exists
+        if [ -f "$startup_log" ] && [ -s "$startup_log" ]; then
+            echo "   Startup output:"
+            head -20 "$startup_log" | sed 's/^/   /'
+        else
+            echo "   Check /tmp/bunnify.log for details"
+        fi
+        exit 1
+    fi
+    
+    # Update PID file with actual Django process PID
+    ACTUAL_server_pid=$(lsof -ti:8000 2>/dev/null | head -1)
+    if [ -n "$ACTUAL_server_pid" ]; then
+        server_pid=$ACTUAL_server_pid
+        echo "$server_pid" > "$pid_file"
+    fi
+    
+    if ! is_running "$watcher_pid"; then
+        echo "⚠️  File watcher failed to start, but server is running"
+        rm -f "$WATCHER_pid_file"
+    fi
+    
+    # Clear the startup trap now that we're done
+    trap - INT TERM
+    
+    echo "✅ Bunnify server started successfully!"
+    echo "   Server PID: $server_pid"
+    echo "   Watcher PID: $watcher_pid"
+    echo "   URLs:"
+    echo "     - http://127.0.0.1:8000/ (IPv4)"
+    echo "     - http://[::1]:8000/ (IPv6)"
+    echo "     - http://localhost:8000/ (auto)"
+    echo "   Log file: /tmp/bunnify.log"
+    echo "   Log level: $BUNNIFY_LOG_LEVEL"
+    echo ""
+    echo "To stop the server, run: ./bunnify-server --stop"
+fi

@@ -31,9 +31,7 @@ gh api \
   -f "reviewers[]=copilot" 2>/dev/null
 
 # Alternative: Add a comment mentioning @copilot
-gh pr comment "$PR_NUMBER" --repo "$REPO" --body "@copilot Please review this PR" 2>/dev/null
-
-if [ $? -eq 0 ]; then
+if gh pr comment "$PR_NUMBER" --repo "$REPO" --body "@copilot Please review this PR" 2>/dev/null; then
     echo "✅ Copilot review requested successfully!"
     echo "Opening PR in browser..."
     gh pr view "$PR_NUMBER" --repo "$REPO" --web

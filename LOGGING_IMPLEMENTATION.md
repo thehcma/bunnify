@@ -24,25 +24,25 @@ Comprehensive logging has been implemented across the Bunnify bookmark manager t
 
 #### Start with default settings (WARNING level, file only)
 ```bash
-./start
+./bunnify-server
 ```
 
 #### Start with console output
 ```bash
-./start --console
+./bunnify-server --console
 ```
 
 #### Start with specific log level
 ```bash
-./start --log-level DEBUG
-./start --log-level INFO
-./start --log-level WARNING
-./start --log-level ERROR
+./bunnify-server --log-level DEBUG
+./bunnify-server --log-level INFO
+./bunnify-server --log-level WARNING
+./bunnify-server --log-level ERROR
 ```
 
 #### Combine options
 ```bash
-./start --console --log-level DEBUG
+./bunnify-server --console --log-level DEBUG
 ```
 
 ## What's Logged
@@ -168,16 +168,16 @@ grep "File change detected" /tmp/bunnify.log
 
 ### Development with full visibility
 ```bash
-./start --console --log-level DEBUG
+./bunnify-server --console --log-level DEBUG
 ```
 
 ### Production with quiet operation
 ```bash
-./start --log-level WARNING
+./bunnify-server --log-level WARNING
 ```
 
 ### Troubleshooting specific issues
 ```bash
-./start --console --log-level INFO
+./bunnify-server --console --log-level INFO
 # Then check /tmp/bunnify.log for details
 ```
