@@ -34,7 +34,7 @@ jobs:
       run: uv run pyright --warnings
     
     - name: Lint shell scripts (shellcheck)
-      run: shellcheck bunnify-server scripts/*.sh test_redirects.sh
+      run: shellcheck bunnify-server scripts/*.sh
     
     - name: Run Django checks
       run: uv run python manage.py check

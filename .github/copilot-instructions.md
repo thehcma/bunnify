@@ -52,7 +52,7 @@ uv run isort .
 uv run pyright --warnings
 
 # Shell script linting (must pass with no errors or warnings)
-shellcheck bunnify-server scripts/*.sh test_redirects.sh
+shellcheck bunnify-server scripts/*.sh
 ```
 
 All checks (`isort`, `pyright`, and `shellcheck`) must pass with zero issues before committing. The CI workflow enforces this - PRs with any issues will fail.
